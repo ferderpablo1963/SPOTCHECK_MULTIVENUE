@@ -53,7 +53,7 @@
             touch-action: none;
             user-select: none;
             cursor: pointer;
-            border-radius: 8px;
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -145,6 +145,19 @@
             letter-spacing: 0.15em;
             color: #000000;
             z-index: 5;
+        }
+        
+        .map-decor-tv {
+            position: absolute;
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 10px;
+            color: #000000;
+            z-index: 4;
         }
 
         @media (max-height: 520px) and (orientation: landscape) {
@@ -241,12 +254,21 @@
             <!-- DECORATIVOS DINÁMICOS: LOBBY BAR -->
             <div id="lobby-decoratives" class="hidden">
                 <!-- Barra principal -->
-                <div class="map-decor-zone text-white font-black" style="left: 250px; top: 100px; width: 960px; height: 80px; background-color: #1e293b; color: white;">B A R R A</div>
-                <!-- Módulos decorativos en medio con TV -->
-                <div class="map-decor-zone text-white text-xs" style="left: 1150px; top: 300px; width: 500px; height: 60px; background-color: #27272a; color: #a1a1aa; border-radius: 4px;">MODULO (TV)</div>
-                <div class="map-decor-zone text-white text-xs" style="left: 1150px; top: 760px; width: 500px; height: 60px; background-color: #27272a; color: #a1a1aa; border-radius: 4px;">MODULO (TV)</div>
-                <!-- Entrada del recinto -->
-                <div class="map-decor-zone text-white font-black" style="left: 420px; top: 1080px; width: 880px; height: 60px; background-color: #1e293b; color: white;">E N T R A D A</div>
+                <div class="map-decor-zone text-white font-black" style="left: 250px; top: 80px; width: 960px; height: 80px; background-color: #27272a; color: white; border: 3px solid #27272a; border-radius: 0;">B A R R A</div>
+                
+                <!-- Módulos decorativos con TV integrados -->
+                <!-- Módulo Superior -->
+                <div class="map-decor-zone text-white text-xs font-black" style="left: 1150px; top: 245px; width: 490px; height: 55px; background-color: #27272a; color: #ffffff; border: 3px solid #27272a; border-radius: 0;">MODULO</div>
+                <div class="map-decor-tv" style="left: 1295px; top: 215px; width: 170px; height: 30px;">TV</div>
+                <div class="map-decor-tv" style="left: 1295px; top: 300px; width: 170px; height: 30px;">TV</div>
+                
+                <!-- Módulo Inferior -->
+                <div class="map-decor-zone text-white text-xs font-black" style="left: 1150px; top: 635px; width: 490px; height: 55px; background-color: #27272a; color: #ffffff; border: 3px solid #27272a; border-radius: 0;">MODULO</div>
+                <div class="map-decor-tv" style="left: 1295px; top: 605px; width: 170px; height: 30px;">TV</div>
+                <div class="map-decor-tv" style="left: 1295px; top: 690px; width: 170px; height: 30px;">TV</div>
+                
+                <!-- Entrada -->
+                <div class="map-decor-zone text-white font-black" style="left: 420px; top: 1080px; width: 880px; height: 60px; background-color: #27272a; color: white; border: 3px solid #27272a; border-radius: 0;">E N T R A D A</div>
             </div>
             
             <div id="mesas-layer" class="w-full h-full relative"></div>
@@ -415,49 +437,53 @@
                 name: "LOBBY BAR",
                 dbKey: "spotcheck_lobby_1225",
                 initialLayout: [
-                    // Superior Derecho (Contiguo a barra)
-                    { label: "1", x: 1260, y: 60, w: 70, h: 55 },
-                    { label: "2", x: 1420, y: 60, w: 70, h: 55 },
-                    { label: "3", x: 1670, y: 60, w: 70, h: 55 },
+                    // Superior Extremo Izquierdo (Arriba de la Barra)
+                    { label: "40", x: 145, y: 40, w: 160, h: 60 },
+
+                    // Mesas arriba de la barra (derecha)
+                    { label: "1", x: 1245, y: 40, w: 75, h: 60 },
+                    { label: "2", x: 1415, y: 40, w: 75, h: 60 },
+                    { label: "3", x: 1685, y: 40, w: 75, h: 60 },
                     
-                    // Contrabarra
-                    { label: "4", x: 1260, y: 170, w: 75, h: 55 },
-                    { label: "5", x: 1345, y: 170, w: 75, h: 55 },
-                    { label: "6", x: 1430, y: 170, w: 75, h: 55 },
-                    { label: "7", x: 1530, y: 170, w: 105, h: 55 },
+                    // Fila inferior contigua a la Barra (4, 5, 6, 7)
+                    { label: "4", x: 1245, y: 170, w: 75, h: 50 },
+                    { label: "5", x: 1320, y: 170, w: 75, h: 50 },
+                    { label: "6", x: 1395, y: 170, w: 75, h: 50 },
+                    { label: "7", x: 1530, y: 170, w: 195, h: 50 },
 
-                    // Extremo derecho de módulo superior
-                    { label: "8", x: 1770, y: 270, w: 70, h: 55 },
-                    { label: "9", x: 1870, y: 270, w: 70, h: 55 },
+                    // Lateral Izquierdo Vertical (41, 42, 43, 44)
+                    { label: "41", x: 120, y: 220, w: 90, h: 55 },
+                    { label: "42", x: 120, y: 320, w: 90, h: 55 },
+                    { label: "43", x: 120, y: 440, w: 90, h: 55 },
+                    { label: "44", x: 205, y: 580, w: 90, h: 55 },
 
-                    // Lateral Izquierdo
-                    { label: "40", x: 140, y: 50, w: 110, h: 60 },
-                    { label: "41", x: 120, y: 220, w: 80, h: 55 },
-                    { label: "42", x: 120, y: 320, w: 80, h: 55 },
-                    { label: "43", x: 120, y: 440, w: 80, h: 55 },
-                    { label: "44", x: 200, y: 580, w: 80, h: 55 },
+                    // Grupo Central Izquierdo (33, 34)
+                    { label: "33", x: 465, y: 320, w: 90, h: 55 },
+                    { label: "34", x: 465, y: 420, w: 90, h: 55 },
 
-                    // Centro Izquierda / Lobby Central
-                    { label: "33", x: 450, y: 320, w: 80, h: 55 },
-                    { label: "34", x: 450, y: 420, w: 80, h: 55 },
-                    { label: "30", x: 880, y: 340, w: 80, h: 55 },
-                    { label: "31", x: 880, y: 420, w: 80, h: 55 },
+                    // Grupo Central Derecho (30, 31)
+                    { label: "30", x: 905, y: 340, w: 90, h: 55 },
+                    { label: "31", x: 905, y: 420, w: 90, h: 55 },
 
-                    // Área Módulo Superior
-                    { label: "20", x: 1230, y: 440, w: 80, h: 55 },
-                    { label: "21", x: 1400, y: 440, w: 80, h: 55 },
-                    { label: "23", x: 1230, y: 540, w: 80, h: 55 },
-                    { label: "22", x: 1400, y: 540, w: 80, h: 55 },
+                    // Bloque Central entre módulos (20, 21, 23, 22)
+                    { label: "20", x: 1245, y: 440, w: 90, h: 55 },
+                    { label: "21", x: 1415, y: 440, w: 90, h: 55 },
+                    { label: "23", x: 1245, y: 540, w: 90, h: 55 },
+                    { label: "22", x: 1415, y: 540, w: 90, h: 55 },
 
-                    // Área Central Baja / Módulo Inferior
-                    { label: "24", x: 960, y: 730, w: 80, h: 55 },
-                    { label: "32", x: 700, y: 800, w: 80, h: 55 },
-                    { label: "25", x: 1230, y: 800, w: 80, h: 55 },
+                    // Mesas a la derecha del módulo superior
+                    { label: "8", x: 1765, y: 270, w: 90, h: 55 },
+                    { label: "9", x: 1865, y: 270, w: 90, h: 55 },
 
-                    // Lateral Derecho Inferior (Mueble tipo L en dos partes unificadas)
-                    { label: "10", x: 1770, y: 630, w: 80, h: 55 },
-                    { label: "11", x: 1770, y: 740, w: 80, h: 140 }, // Parte vertical de la L
-                    { label: "11", x: 1610, y: 825, w: 240, h: 55 }  // Parte horizontal de la L
+                    // Diagonal de mesas inferiores bajas (32, 24, 25)
+                    { label: "32", x: 735, y: 800, w: 90, h: 55 },
+                    { label: "24", x: 995, y: 730, w: 90, h: 55 },
+                    { label: "25", x: 1245, y: 800, w: 90, h: 55 },
+
+                    // Lateral Derecho Inferior (Mueble tipo L: mesas 10 y 11)
+                    { label: "10", x: 1765, y: 630, w: 90, h: 55 },
+                    { label: "11", x: 1805, y: 740, w: 90, h: 145 }, // Segmento vertical
+                    { label: "11", x: 1640, y: 825, w: 240, h: 55 }   // Segmento horizontal
                 ]
             }
         };
@@ -700,7 +726,7 @@
                 if (t.shape === 'circle') {
                     div.style.borderRadius = '50%';
                 } else {
-                    div.style.borderRadius = '8px';
+                    div.style.borderRadius = '4px';
                 }
 
                 div.style.transform = `translate(-50%, -50%) rotate(${t.rotation || 0}deg)`;
