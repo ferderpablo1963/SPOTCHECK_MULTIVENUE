@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#020617">
+    
+    <title>SPOT CHECK - MULTI-VENUE AUDITOR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            overscroll-behavior: none; 
+            -webkit-tap-highlight-color: transparent; 
+            background-color: #f8fafc;
+        }
+        
+        input, textarea, select {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            touch-action: auto !important;
+        }
+        
+        #main-scroll {
+            overflow: auto;
+            position: relative;
+            background-color: #e2e8f0;
+        }
+
+        #map-container { 
+            height: 1200px; 
+            width: 2000px;
+            position: relative;
+            background-color: #ffffff;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: top left;
+        }
+
+        .design-grid {
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        .mesa {
+            position: absolute;
+            transform-origin: center center;
+            transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+            z-index: 10;
+            touch-action: none;
+            user-select: none;
+            cursor: pointer;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .mesa-free { 
+            background-color: #ffffff !important; 
+            color: #1e293b !important; 
+            border: 3px solid #000000 !important; 
+        }
+        
+        .mesa-occupied { 
+            background-color: #000000 !important; 
+            color: #ffffff !important; 
+            border: 3px solid #000000 !important; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+        
+        .mesa-indet { 
+            background-color: #ef4444 !important; 
+            color: #ffffff !important; 
+            border: 3px solid #ef4444 !important;
+            box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3);
+        }
+
+        .design-mode .mesa {
+            background-color: #ffffff !important;
+            color: #1e293b !important;
+            border: 3px solid #000000 !important;
+        }
+
+        .handle {
+            position: absolute;
+            width: 38px;
+            height: 38px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            display: none;
+            z-index: 120;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            touch-action: none;
+        }
+        
+        .selected-design .handle { display: flex; }
+        .resizer-handle { right: -19px; bottom: -19px; background-color: #f59e0b; cursor: nwse-resize; }
+        .rotator-handle { right: -19px; top: -19px; background-color: #3b82f6; cursor: crosshair; }
+
+        #toast {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            transition: transform 0.3s ease-out;
+            z-index: 1000;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); }
+        
+        .screen-overlay {
+            position: fixed;
+            left: 0; right: 0; bottom: 0; top: 205px;    
+            background-color: #f8fafc;
+            z-index: 30;   
+            overflow-y: auto;
+            display: none;
+            padding-bottom: 100px; 
+        }
+        .screen-overlay.active { display: flex; }
+
+        /* DECORATIVOS FIJOS DEL RESTAURANTE */
+        .map-decor-wall {
+            position: absolute;
+            background-color: #000000;
+            z-index: 5;
+        }
+        .map-decor-zone {
+            position: absolute;
+            background-color: #e2e8f0;
+            border: 3px solid #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 14px;
+            letter-spacing: 0.1em;
+            color: #000000;
+            z-index: 5;
+        }
+
+        @media (max-height: 520px) and (orientation: landscape) {
+            header { padding-top: 6px !important; padding-bottom: 6px !important; }
+            .screen-overlay { top: 115px; }
+        }
+
+        @media print {
+            header, nav, footer, .no-print, .bg-slate-100, button { display: none !important; }
+            .screen-overlay { position: static; display: block; top: 0; background: white !important; padding: 0 !important; }
+            body { background: white; overflow: visible !important; }
+            .print-card { border: 2px solid #000000 !important; box-shadow: none !important; border-radius: 0 !important; padding: 15px !important; page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none text-slate-900">
+
+    <header class="bg-slate-950 text-white p-5 pt-12 flex justify-between items-center shrink-0 shadow-2xl z-[60]">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg transform -rotate-3">
+                <i class="fa-solid fa-hotel text-slate-950 text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-black text-xl tracking-tighter uppercase italic leading-none text-white">SPOT CHECK</h1>
+                <!-- SELECTOR DE VENUE DINÁMICO -->
+                <select id="venue-selector" onchange="changeVenue(this.value)" class="bg-transparent text-amber-400 font-black tracking-wider uppercase italic leading-none border-none outline-none cursor-pointer text-sm py-1 pr-6">
+                    <!-- Se llena dinámicamente mediante JS -->
+                </select>
+            </div>
+        </div>
+        <button onclick="toggleLock()" id="lock-btn" class="group flex items-center gap-2 px-4 py-2 bg-slate-900 rounded-2xl border border-slate-800 transition-all active:scale-95">
+            <span id="lock-text" class="text-[9px] font-black uppercase text-slate-500">Bloqueado</span>
+            <i class="fa-solid fa-lock text-red-500" id="lock-icon"></i>
+        </button>
+    </header>
+
+    <div class="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center z-50 shrink-0">
+        <div class="flex gap-4">
+            <div>
+                <p class="text-[8px] font-black text-slate-400 uppercase">Mesas Activas</p>
+                <p id="stat-occupied" class="text-sm font-black">0</p>
+            </div>
+            <div class="w-[1px] h-6 bg-slate-100 my-auto"></div>
+            <div>
+                <p class="text-[8px] font-black text-slate-400 uppercase">Ocupación</p>
+                <p id="stat-percent" class="text-sm font-black text-emerald-600">0%</p>
+            </div>
+        </div>
+        <div class="text-right flex items-center gap-4">
+            <button onclick="toggleFit()" id="btn-fit" class="bg-slate-100 px-4 py-2 rounded-lg text-[10px] font-black uppercase text-slate-600 active:bg-slate-300 transition-colors">
+                <i class="fa-solid fa-expand mr-1"></i> FIT
+            </button>
+            <p id="current-time" class="text-[10px] font-black text-slate-950">00:00</p>
+        </div>
+    </div>
+
+    <nav class="px-4 py-3 bg-slate-50 flex flex-col gap-2 shrink-0 z-40 border-b border-slate-200">
+        <div class="flex w-full bg-slate-200/50 p-1 rounded-2xl border border-white/50">
+            <button onclick="setMode('audit')" id="nav-audit" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase transition-all bg-white shadow-sm text-slate-950 border-b-2 border-emerald-500">Auditar</button>
+            <button onclick="setMode('design')" id="nav-design" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase transition-all text-slate-400">Diseño</button>
+            <button onclick="setMode('notes')" id="nav-notes" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase transition-all text-slate-400">Reporte</button>
+            <button onclick="setMode('history')" id="nav-history" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase transition-all text-slate-400">Historial</button>
+        </div>
+        
+        <div id="design-top-bar" class="hidden flex gap-2 w-full mt-1 animate-fade-in">
+            <button onclick="addTable('simple')" class="flex-1 bg-slate-950 text-white py-2 rounded-xl font-black text-[9px] uppercase shadow-md flex items-center justify-center gap-2">
+                <i class="fa-solid fa-plus text-amber-400"></i> Agregar Simple
+            </button>
+            <button onclick="addTable('circle')" class="flex-1 bg-white text-slate-950 py-2 rounded-xl font-black text-[9px] uppercase border border-slate-300 shadow-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-circle text-slate-500"></i> Agregar Redonda
+            </button>
+            <button onclick="resetLayout()" class="px-3 bg-red-50 text-red-600 rounded-xl font-black text-[9px] uppercase border border-red-100" title="Restablecer plano original">
+                <i class="fa-solid fa-arrow-rotate-left"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-1 overflow-hidden relative" id="main-scroll">
+        <div id="map-container" onclick="deselectTable()">
+            <!-- DECORATIVOS DINÁMICOS: Solo se muestran si el POS cargado es BUONO -->
+            <div id="buono-decoratives">
+                <div class="map-decor-wall" style="left: 740px; top: 260px; width: 800px; height: 10px;"></div>
+                <div class="map-decor-wall" style="left: 740px; top: 310px; width: 10px; height: 300px;"></div>
+                <div class="map-decor-wall" style="left: 740px; top: 610px; width: 800px; height: 10px;"></div>
+                <div class="map-decor-wall" style="left: 1530px; top: 310px; width: 10px; height: 310px;"></div>
+                <div class="map-decor-zone" style="left: 760px; top: 200px; width: 760px; height: 35px; background-color: #cbd5e1;"></div>
+                <div class="map-decor-wall" style="left: 50px; top: 540px; width: 350px; height: 10px;"></div>
+                <div class="map-decor-wall" style="left: 50px; top: 660px; width: 350px; height: 10px;"></div>
+                <div class="map-decor-zone" style="left: 140px; top: 570px; width: 100px; height: 50px; background-color: #cbd5e1;"></div>
+                <div class="map-decor-zone" style="left: 630px; top: 1085px; width: 1040px; height: 40px; background-color: #cbd5e1;">COCINA</div>
+                <div class="map-decor-wall" style="left: 630px; top: 1040px; width: 1040px; height: 10px;"></div>
+            </div>
+            
+            <div id="mesas-layer" class="w-full h-full relative"></div>
+        </div>
+        
+        <div id="table-edit-floating" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md px-4 py-3 rounded-2xl shadow-2xl border border-slate-300 z-[100] hidden items-center gap-3 transition-all">
+            <span class="text-[9px] font-black uppercase text-slate-400">Editar Nº:</span>
+            <input id="label-input" type="text" class="w-16 bg-slate-100 border border-slate-300 rounded-xl px-2 py-1.5 font-black text-center text-sm outline-none focus:ring-2 focus:ring-slate-950" placeholder="ID...">
+            <div class="w-[1px] h-6 bg-slate-200"></div>
+            <button onclick="deleteSelected()" class="bg-red-50 hover:bg-red-100 text-red-500 px-3 py-2 rounded-xl text-xs flex items-center justify-center font-bold gap-1 transition-colors">
+                <i class="fa-solid fa-trash-can"></i> Borrar
+            </button>
+            <button onclick="deselectTable()" class="bg-slate-900 hover:bg-slate-950 text-white px-3 py-2 rounded-xl text-xs flex items-center justify-center font-bold transition-colors">
+                Listo
+            </button>
+        </div>
+    </main>
+
+    <div id="notes-screen" class="screen-overlay flex-col p-4">
+        <div id="printable-area" class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200 max-w-md mx-auto w-full space-y-5">
+            <div class="text-center border-b border-slate-100 pb-3">
+                <h3 class="text-sm font-black uppercase italic text-slate-900 tracking-tight">PREPARACIÓN DE REPORTE</h3>
+                <p class="text-[9px] text-slate-400 font-bold uppercase">(Control vs POS System)</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 italic">Mesa In Situ (Plano)</label>
+                        <input id="note-insitu" type="number" readonly class="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-black text-sm text-slate-900 text-center">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 italic">Mesas en Sistema POS</label>
+                        <input id="note-micros" type="number" oninput="calculateDiscrepancy()" placeholder="Cant. POS" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-black text-sm text-center text-emerald-600 outline-none ring-2 ring-emerald-500/20">
+                    </div>
+                </div>
+
+                <div id="discrepancy-box" class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center transition-all">
+                    <span class="text-[10px] font-black uppercase text-slate-500">Estado de Conciliación:</span>
+                    <span id="discrepancy-badge" class="px-3 py-1 rounded-full font-black text-[10px] uppercase bg-slate-200 text-slate-600">Esperando datos</span>
+                </div>
+
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 italic">Ubicación / Sector (POS)</label>
+                    <input id="note-lugar" type="text" readonly class="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-black text-xs outline-none text-slate-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 italic">Hora Auditoría</label>
+                        <input id="note-hora" type="text" class="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-bold text-xs text-center" readonly>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 italic">Firma Auditor</label>
+                        <input id="note-firma" type="text" placeholder="Nombre" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-black uppercase text-xs outline-none text-center">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 italic">Observaciones y Justificaciones</label>
+                    <textarea id="note-observaciones" rows="3" placeholder="Ingresar notas si existen discrepancias con el sistema..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-xs outline-none"></textarea>
+                </div>
+            </div>
+
+            <button onclick="openModal('audit-modal')" class="w-full bg-slate-950 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 no-print">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Guardar y Emitir Reporte
+            </button>
+        </div>
+    </div>
+
+    <div id="history-screen" class="screen-overlay flex-col p-6">
+        <div class="flex justify-between items-center mb-6 shrink-0">
+            <h2 class="text-2xl font-black uppercase italic text-slate-950 leading-none">Historial de Controles</h2>
+            <button onclick="setMode('audit')" class="w-10 h-10 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center">
+                <i class="fa-solid fa-arrow-left"></i>
+            </button>
+        </div>
+        <div id="history-list" class="space-y-6"></div>
+        <div class="mt-8 pb-20">
+             <button onclick="clearHistory()" class="w-full py-4 text-red-400 font-black text-[9px] uppercase tracking-widest bg-red-50 rounded-2xl">Limpiar Historial</button>
+        </div>
+    </div>
+
+    <footer id="main-footer" class="p-6 bg-white border-t border-slate-200 shrink-0 z-50">
+        <div id="audit-controls" class="flex gap-3">
+            <button onclick="setMode('notes')" class="flex-[3] bg-slate-950 text-white py-5 rounded-3xl font-black text-sm uppercase shadow-xl active:bg-emerald-600 transition-all flex items-center justify-center gap-3">
+                <i class="fa-solid fa-file-signature"></i> Preparar Reporte
+            </button>
+            <button onclick="clearCurrentAudit()" class="flex-1 bg-slate-100 text-slate-400 py-5 rounded-3xl font-black text-[10px] uppercase transition-all flex items-center justify-center" title="Poner todas las mesas en blanco">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+    </footer>
+
+    <div id="audit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm hidden z-[200] items-center justify-center p-8">
+        <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl">
+            <h3 class="text-xl font-black text-center mb-2 uppercase text-slate-900 italic">Confirmar Reporte</h3>
+            <p class="text-[10px] text-center text-slate-400 font-bold uppercase mb-8 tracking-widest">Los datos se guardarán en el historial local</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="saveAudit()" class="w-full py-6 bg-emerald-500 text-slate-950 rounded-3xl font-black uppercase shadow-lg active:scale-95 transition-all">Confirmar e Ir al Historial</button>
+                <button onclick="closeModal('audit-modal')" class="w-full py-4 text-slate-400 font-bold text-[10px] uppercase tracking-widest">Volver a revisar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="bg-slate-900 text-white px-6 py-3 rounded-full font-bold text-xs uppercase shadow-2xl flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-msg">Acción realizada</span>
+    </div>
+
+    <script>
+        // ==========================================
+        // DICCIONARIO CENTRAL DE VENUES / PLANOS (Fácil de expandir en el futuro)
+        // ==========================================
+        const VENUES = {
+            buono: {
+                name: "BUONO RESTAURANT",
+                dbKey: "spotcheck_buono_0726",
+                initialLayout: [
+                    { label: "3", x: 190, y: 140, w: 100, h: 100, shape: 'diamond', rotation: 45 },
+                    { label: "8", x: 440, y: 170, w: 70, h: 70 },
+                    { label: "7", x: 440, y: 260, w: 70, h: 70 },
+                    { label: "2", x: 110, y: 310, w: 70, h: 70 },
+                    { label: "2", x: 210, y: 310, w: 70, h: 70 },
+                    { label: "6", x: 440, y: 350, w: 70, h: 70 },
+                    { label: "5", x: 440, y: 440, w: 70, h: 70 },
+                    { label: "1", x: 160, y: 490, w: 100, h: 100, shape: 'diamond', rotation: 45 },
+                    { label: "4", x: 440, y: 530, w: 70, h: 70 },
+                    { label: "4", x: 440, y: 620, w: 70, h: 70 },
+                    { label: "12", x: 120, y: 740, w: 80, h: 80 },
+                    { label: "24", x: 380, y: 740, w: 90, h: 90, shape: 'diamond', rotation: 45 },
+                    { label: "23", x: 390, y: 880, w: 70, h: 70 },
+                    { label: "11", x: 120, y: 890, w: 80, h: 80 },
+                    { label: "22", x: 390, y: 970, w: 70, h: 70 },
+                    { label: "21", x: 390, y: 1060, w: 70, h: 70 },
+                    { label: "10", x: 120, y: 1040, w: 80, h: 80 },
+                    { label: "20", x: 390, y: 1150, w: 70, h: 70 },
+                    { label: "44", x: 790, y: 750, w: 170, h: 170, shape: 'circle' },
+                    { label: "43", x: 1040, y: 750, w: 75, h: 75 },
+                    { label: "42", x: 1210, y: 750, w: 75, h: 75 },
+                    { label: "41", x: 1380, y: 750, w: 75, h: 75 },
+                    { label: "40", x: 1640, y: 750, w: 75, h: 75 },
+                    { label: "40", x: 1750, y: 750, w: 75, h: 75 },
+                    { label: "36", x: 740, y: 970, w: 75, h: 75 },
+                    { label: "35", x: 860, y: 970, w: 75, h: 75 },
+                    { label: "34", x: 980, y: 970, w: 75, h: 75 },
+                    { label: "33", x: 1100, y: 970, w: 75, h: 75 },
+                    { label: "32", x: 1220, y: 970, w: 75, h: 75 },
+                    { label: "31", x: 1340, y: 970, w: 75, h: 75 },
+                    { label: "30", x: 1460, y: 970, w: 75, h: 75 },
+                    { label: "80", x: 830, y: 460, w: 75, h: 75 },
+                    { label: "81", x: 950, y: 460, w: 75, h: 75 },
+                    { label: "82", x: 1070, y: 460, w: 75, h: 75 },
+                    { label: "83", x: 1190, y: 460, w: 75, h: 75 },
+                    { label: "84", x: 1310, y: 460, w: 75, h: 75 },
+                    { label: "85", x: 1430, y: 460, w: 75, h: 75 },
+                    { label: "61", x: 1590, y: 350, w: 75, h: 75 },
+                    { label: "51", x: 1760, y: 430, w: 75, h: 75 },
+                    { label: "51", x: 1870, y: 430, w: 75, h: 75 },
+                    { label: "60", x: 1590, y: 560, w: 75, h: 75 },
+                    { label: "50", x: 1760, y: 570, w: 75, h: 75 },
+                    { label: "50", x: 1870, y: 570, w: 75, h: 75 }
+                ]
+            },
+            lobby: {
+                name: "LOBBY BAR",
+                dbKey: "spotcheck_lobby_1225",
+                initialLayout: [
+                    { label: "1", x: 1450, y: 150, w: 65, h: 65 },
+                    { label: "2", x: 1570, y: 150, w: 65, h: 65 },
+                    { label: "3", x: 1690, y: 150, w: 65, h: 65 },
+                    { label: "4", x: 1050, y: 320, w: 65, h: 65 },
+                    { label: "5", x: 1140, y: 320, w: 65, h: 65 },
+                    { label: "6", x: 1230, y: 320, w: 65, h: 65 },
+                    { label: "7", x: 1320, y: 320, w: 65, h: 65 },
+                    { label: "8", x: 1820, y: 450, w: 65, h: 65 },
+                    { label: "9", x: 1940, y: 450, w: 65, h: 65 },
+                    { label: "10", x: 1820, y: 720, w: 65, h: 65 },
+                    { label: "11", x: 1820, y: 880, w: 65, h: 65 },
+                    { label: "33", x: 550, y: 500, w: 65, h: 65 },
+                    { label: "30", x: 950, y: 550, w: 65, h: 65 },
+                    { label: "34", x: 620, y: 650, w: 65, h: 65 },
+                    { label: "31", x: 950, y: 650, w: 65, h: 65 },
+                    { label: "20", x: 1350, y: 620, w: 65, h: 65 },
+                    { label: "21", x: 1470, y: 620, w: 65, h: 65 },
+                    { label: "23", x: 1350, y: 780, w: 65, h: 65 },
+                    { label: "22", x: 1470, y: 780, w: 65, h: 65 },
+                    { label: "24", x: 1050, y: 920, w: 65, h: 65 },
+                    { label: "32", x: 820, y: 1020, w: 65, h: 65 },
+                    { label: "25", x: 1280, y: 1020, w: 65, h: 65 },
+                    { label: "40", x: 180, y: 150, w: 65, h: 65 },
+                    { label: "41", x: 180, y: 420, w: 65, h: 65 },
+                    { label: "42", x: 180, y: 500, w: 65, h: 65 },
+                    { label: "43", x: 180, y: 620, w: 65, h: 65 },
+                    { label: "44", x: 180, y: 800, w: 65, h: 65 }
+                ]
+            }
+            // 💡 En el futuro, puedes agregar los otros 6 salones aquí debajo siguiendo la misma estructura.
+        };
+
+        // Estado Global Dinámico
+        let currentVenueKey = localStorage.getItem('spotcheck_selected_venue') || 'buono';
+        let tables = [];
+        let audits = [];
+        let isLocked = true;
+
+        let currentMode = 'audit';
+        let selectedId = null;
+        let draggingId = null;
+        let resizingId = null;
+        let rotatingId = null;
+        let isFitted = false; 
+
+        let startPos = { x: 0, y: 0 };
+        let startMesaPos = { x: 0, y: 0 };
+        let startMesaSize = { w: 0, h: 0 };
+
+        function init() {
+            populateVenueSelector();
+            loadVenueData(currentVenueKey);
+            startTime();
+            window.addEventListener('pointermove', handlePointerMove);
+            window.addEventListener('pointerup', handlePointerUp);
+        }
+
+        // Crea el selector con los salones configurados
+        function populateVenueSelector() {
+            const selector = document.getElementById('venue-selector');
+            selector.innerHTML = '';
+            for (const [key, venue] of Object.entries(VENUES)) {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.innerText = venue.name;
+                opt.className = "bg-slate-950 text-white font-black";
+                if (key === currentVenueKey) opt.selected = true;
+                selector.appendChild(opt);
+            }
+        }
+
+        // Carga la información de localStorage dependiendo del salón elegido
+        function loadVenueData(venueKey) {
+            currentVenueKey = venueKey;
+            localStorage.setItem('spotcheck_selected_venue', venueKey);
+            
+            const activeVenue = VENUES[venueKey];
+            const dbPrefix = activeVenue.dbKey;
+
+            tables = JSON.parse(localStorage.getItem(`${dbPrefix}_tables`)) || [];
+            audits = JSON.parse(localStorage.getItem(`${dbPrefix}_audits`)) || [];
+            isLocked = JSON.parse(localStorage.getItem(`${dbPrefix}_locked`) ?? 'true');
+
+            if (tables.length === 0) {
+                createInitialLayout(activeVenue.initialLayout);
+            }
+
+            // Ocultar/Mostrar decoraciones de Buono según corresponda
+            const buonoDecor = document.getElementById('buono-decoratives');
+            if (venueKey === 'buono') {
+                buonoDecor.classList.remove('hidden');
+            } else {
+                buonoDecor.classList.add('hidden');
+            }
+
+            // Actualizar campos del reporte
+            document.getElementById('note-lugar').value = activeVenue.name;
+
+            render();
+            updateLockUI();
+            
+            // Sincronizar UI de la barra de diseño
+            const designTopBar = document.getElementById('design-top-bar');
+            if (currentMode === 'design' && !isLocked) {
+                designTopBar.classList.remove('hidden');
+            } else {
+                designTopBar.classList.add('hidden');
+            }
+        }
+
+        function changeVenue(venueKey) {
+            if (isFitted) toggleFit(); // Normalizar escala antes de cambiar
+            loadVenueData(venueKey);
+            showToast(`Cargado: ${VENUES[venueKey].name}`);
+        }
+
+        function createInitialLayout(layoutData) {
+            tables = layoutData.map((t, idx) => ({
+                id: Date.now() + idx,
+                x: t.x,
+                y: t.y,
+                label: t.label,
+                status: 'free',
+                w: t.w,
+                h: t.h,
+                shape: t.shape || 'square',
+                rotation: t.rotation || 0
+            }));
+            saveData();
+        }
+
+        function toggleFit() {
+            const container = document.getElementById('map-container');
+            const main = document.getElementById('main-scroll');
+            const btn = document.getElementById('btn-fit');
+            if (!isFitted) {
+                const scaleX = main.clientWidth / container.offsetWidth;
+                const scaleY = main.clientHeight / container.offsetHeight;
+                const finalScale = Math.min(scaleX, scaleY, 1) * 0.95;
+                container.style.transform = `scale(${finalScale})`;
+                btn.classList.replace('bg-slate-100', 'bg-emerald-500');
+                btn.classList.replace('text-slate-600', 'text-white');
+                showToast("Vista Encajada");
+            } else {
+                container.style.transform = `scale(1)`;
+                btn.classList.replace('bg-emerald-500', 'bg-slate-100');
+                btn.classList.replace('text-white', 'text-slate-600');
+                showToast("Vista Normal");
+            }
+            isFitted = !isFitted;
+        }
+
+        function handlePointerMove(e) {
+            if (resizingId) {
+                const t = tables.find(x => x.id === resizingId);
+                if (t) {
+                    let currentScale = 1;
+                    if (isFitted) {
+                        const container = document.getElementById('map-container');
+                        const main = document.getElementById('main-scroll');
+                        currentScale = Math.min(main.clientWidth / container.offsetWidth, main.clientHeight / container.offsetHeight, 1) * 0.95;
+                    }
+                    t.w = Math.max(30, startMesaSize.w + ((e.clientX - startPos.x) / currentScale));
+                    t.h = Math.max(30, startMesaSize.h + ((e.clientY - startPos.y) / currentScale));
+                    render();
+                }
+                return;
+            }
+            if (rotatingId) {
+                const t = tables.find(x => x.id === rotatingId);
+                if (t) {
+                    const mesaEl = document.querySelector(`[data-id="${rotatingId}"]`);
+                    const rect = mesaEl.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    const rad = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+                    t.rotation = (rad * (180 / Math.PI)) + 45; 
+                    render();
+                }
+                return;
+            }
+            if (draggingId) {
+                const t = tables.find(x => x.id === draggingId);
+                if (t) {
+                    const container = document.getElementById('map-container');
+                    const rect = container.getBoundingClientRect();
+                    let currentScale = 1;
+                    if (isFitted) {
+                        const main = document.getElementById('main-scroll');
+                        currentScale = Math.min(main.clientWidth / container.offsetWidth, main.clientHeight / container.offsetHeight, 1) * 0.95;
+                    }
+                    t.x = (e.clientX - rect.left) / currentScale;
+                    t.y = (e.clientY - rect.top) / currentScale;
+                    render();
+                }
+            }
+        }
+
+        function handlePointerUp() {
+            if (draggingId || resizingId || rotatingId) {
+                draggingId = resizingId = rotatingId = null;
+                saveData();
+            }
+        }
+
+        function startTime() {
+            setInterval(() => {
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                document.getElementById('current-time').innerText = timeStr;
+                if (document.getElementById('note-hora') && currentMode !== 'notes') document.getElementById('note-hora').value = timeStr;
+            }, 1000);
+        }
+
+        function calculateDiscrepancy() {
+            const insitu = parseInt(document.getElementById('note-insitu').value) || 0;
+            const microsVal = document.getElementById('note-micros').value;
+            const badge = document.getElementById('discrepancy-badge');
+            const box = document.getElementById('discrepancy-box');
+
+            if (microsVal === '') {
+                badge.innerText = "Esperando POS";
+                badge.className = "px-3 py-1 rounded-full font-black text-[10px] uppercase bg-slate-200 text-slate-600";
+                box.className = "p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center";
+                return;
+            }
+
+            const micros = parseInt(microsVal) || 0;
+            const diff = insitu - micros;
+
+            if (diff === 0) {
+                badge.innerText = "OK - Coinciden";
+                badge.className = "px-3 py-1 rounded-full font-black text-[10px] uppercase bg-emerald-500 text-white shadow-sm";
+                box.className = "p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex justify-between items-center";
+            } else {
+                badge.innerText = `Discrepancia: ${diff > 0 ? '+' : ''}${diff}`;
+                badge.className = "px-3 py-1 rounded-full font-black text-[10px] uppercase bg-red-500 text-white shadow-sm";
+                box.className = "p-3 bg-red-50 border border-red-200 rounded-xl flex justify-between items-center";
+            }
+        }
+
+        function render() {
+            const layer = document.getElementById('mesas-layer');
+            layer.innerHTML = '';
+            const container = document.getElementById('map-container');
+            container.className = `${currentMode === 'design' ? 'design-grid' : ''}`;
+
+            let activeCount = 0;
+            tables.forEach(t => {
+                if(t.status === 'occupied' || t.status === 'indet') activeCount++;
+                const div = document.createElement('div');
+                let statusClass = t.status === 'occupied' ? 'mesa-occupied' : (t.status === 'indet' ? 'mesa-indet' : 'mesa-free');
+                div.className = `mesa ${statusClass} ${selectedId === t.id && currentMode === 'design' ? 'selected-design' : ''}`;
+                div.setAttribute('data-id', t.id);
+                
+                div.style.left = `${t.x}px`;
+                div.style.top = `${t.y}px`;
+                div.style.width = `${t.w}px`;
+                div.style.height = `${t.h}px`;
+                
+                if (t.shape === 'circle') {
+                    div.style.borderRadius = '50%';
+                } else {
+                    div.style.borderRadius = '8px';
+                }
+
+                div.style.transform = `translate(-50%, -50%) rotate(${t.rotation || 0}deg)`;
+                div.style.fontSize = `${Math.min(t.w, t.h) * 0.35}px`;
+                
+                div.innerHTML = `<span style="transform: rotate(-${t.rotation || 0}deg)">${t.label}</span>`;
+                
+                if (currentMode === 'design' && !isLocked) {
+                    const resizer = document.createElement('div');
+                    resizer.className = 'handle resizer-handle';
+                    resizer.innerHTML = '<i class="fa-solid fa-maximize text-[10px]"></i>';
+                    resizer.onpointerdown = (e) => { e.stopPropagation(); resizingId = t.id; startPos = { x: e.clientX, y: e.clientY }; startMesaSize = { w: t.w, h: t.h }; };
+                    div.appendChild(resizer);
+                    const rotator = document.createElement('div');
+                    rotator.className = 'handle rotator-handle';
+                    rotator.innerHTML = '<i class="fa-solid fa-rotate text-[10px]"></i>';
+                    rotator.onpointerdown = (e) => { e.stopPropagation(); rotatingId = t.id; };
+                    div.appendChild(rotator);
+                }
+
+                div.onpointerdown = (e) => {
+                    if (currentMode === 'design' && !isLocked) {
+                        e.stopPropagation();
+                        selectedId = t.id; draggingId = t.id;
+                        startPos = { x: e.clientX, y: e.clientY }; 
+                        startMesaPos = { x: t.x, y: t.y };
+                        updateDesignPanel(); render();
+                    } else if (currentMode === 'audit') {
+                        if (t.status === 'free' || !t.status) t.status = 'occupied';
+                        else if (t.status === 'occupied') t.status = 'indet';
+                        else t.status = 'free';
+                        saveData(); render();
+                    }
+                };
+                layer.appendChild(div);
+            });
+            document.getElementById('stat-occupied').innerText = activeCount;
+            document.getElementById('stat-percent').innerText = (tables.length > 0 ? Math.round((activeCount / tables.length) * 100) : 0) + '%';
+            
+            if (document.getElementById('note-insitu')) {
+                document.getElementById('note-insitu').value = activeCount;
+            }
+        }
+
+        function setMode(m) {
+            currentMode = m;
+            selectedId = null;
+            ['audit', 'design', 'notes', 'history'].forEach(mode => {
+                const btn = document.getElementById(`nav-${mode}`);
+                btn.className = `flex-1 py-3 rounded-xl font-black text-[10px] uppercase transition-all ${mode === m ? 'bg-white shadow-sm text-slate-950 border-b-2 border-emerald-500' : 'text-slate-400'}`;
+            });
+            
+            document.getElementById('main-footer').classList.toggle('hidden', m === 'notes' || m === 'history');
+            document.getElementById('notes-screen').classList.toggle('active', m === 'notes');
+            document.getElementById('history-screen').classList.toggle('active', m === 'history');
+            
+            const designTopBar = document.getElementById('design-top-bar');
+            if (m === 'design' && !isLocked) {
+                designTopBar.classList.remove('hidden');
+            } else {
+                designTopBar.classList.add('hidden');
+            }
+
+            if (m === 'notes') {
+                const now = new Date();
+                document.getElementById('note-hora').value = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                calculateDiscrepancy();
+            }
+            if (m === 'history') renderHistory();
+            updateDesignPanel(); render();
+        }
+
+        function toggleLock() { 
+            isLocked = !isLocked; 
+            updateLockUI(); saveData(); 
+            
+            const designTopBar = document.getElementById('design-top-bar');
+            if (currentMode === 'design' && !isLocked) {
+                designTopBar.classList.remove('hidden');
+            } else {
+                designTopBar.classList.add('hidden');
+            }
+
+            showToast(isLocked ? "Cerrado para Auditoría" : "Modo Edición Activado");
+            render();
+        }
+
+        function updateLockUI() {
+            document.getElementById('lock-icon').className = isLocked ? 'fa-solid fa-lock text-red-500' : 'fa-solid fa-unlock text-emerald-400';
+            document.getElementById('lock-text').innerText = isLocked ? 'Bloqueado' : 'Edición';
+            document.getElementById('lock-text').className = `text-[9px] font-black uppercase ${isLocked ? 'text-red-400' : 'text-emerald-400'}`;
+        }
+
+        function updateDesignPanel() {
+            const floatingPanel = document.getElementById('table-edit-floating');
+            const input = document.getElementById('label-input');
+            
+            if (selectedId && !isLocked && currentMode === 'design') {
+                floatingPanel.classList.remove('hidden');
+                floatingPanel.classList.add('flex');
+                
+                const currentTable = tables.find(t => t.id === selectedId);
+                if (currentTable) {
+                    input.value = currentTable.label;
+                    input.oninput = (e) => { 
+                        currentTable.label = e.target.value; 
+                        render(); 
+                        saveData(); 
+                    };
+                }
+            } else {
+                floatingPanel.classList.remove('flex');
+                floatingPanel.classList.add('hidden');
+            }
+        }
+
+        function deselectTable() { if(!draggingId && !resizingId && !rotatingId) { selectedId = null; updateDesignPanel(); render(); } }
+        function deleteSelected() { tables = tables.filter(t => t.id !== selectedId); deselectTable(); saveData(); }
+        
+        function addTable(type) { 
+            tables.push({ 
+                id: Date.now(), 
+                x: 250, 
+                y: 250, 
+                label: (tables.length + 1).toString(), 
+                status: 'free', 
+                w: type === 'circle' ? 100 : 75, 
+                h: type === 'circle' ? 100 : 75, 
+                shape: type === 'circle' ? 'circle' : 'square',
+                rotation: 0 
+            }); 
+            saveData(); render(); 
+        }
+
+        function clearCurrentAudit() { if(!confirm("¿Deseas limpiar el control actual?")) return; tables.forEach(t => t.status = 'free'); saveData(); render(); showToast("Mesas reseteadas"); }
+
+        function saveAudit() {
+            const insituCount = tables.filter(t => t.status === 'occupied' || t.status === 'indet').length;
+            const microsVal = parseInt(document.getElementById('note-micros').value) || 0;
+            const discrepancyNum = insituCount - microsVal;
+
+            const activeTablesDetail = [];
+            tables.forEach(t => {
+                if (t.status === 'occupied' || t.status === 'indet') {
+                    activeTablesDetail.push({
+                        label: t.label,
+                        type: t.status === 'occupied' ? 'OCUPADA' : 'DISCREPANTE'
+                    });
+                }
+            });
+
+            const lugarVal = VENUES[currentVenueKey].name;
+            const firmaVal = document.getElementById('note-firma') ? document.getElementById('note-firma').value.trim() : 'AUDITOR';
+            const obsVal = document.getElementById('note-observaciones') ? document.getElementById('note-observaciones').value.trim() : 'Sin observaciones.';
+            const horaVal = document.getElementById('note-hora') ? document.getElementById('note-hora').value : new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            const newAudit = {
+                id: Date.now(), 
+                date: new Date().toLocaleDateString(), 
+                time: horaVal, 
+                lugar: lugarVal,
+                insitu: insituCount, 
+                micros: microsVal,
+                discrepancy: discrepancyNum,
+                firma: (firmaVal || 'AUDITOR').toUpperCase(),
+                obs: obsVal || 'Sin observaciones.',
+                reportedTables: activeTablesDetail
+            };
+
+            audits.unshift(newAudit);
+            saveData(); 
+
+            tables.forEach(t => t.status = 'free');
+            if(document.getElementById('note-micros')) document.getElementById('note-micros').value = '';
+            if(document.getElementById('note-observaciones')) document.getElementById('note-observaciones').value = '';
+            if(document.getElementById('note-firma')) document.getElementById('note-firma').value = '';
+            
+            closeModal('audit-modal'); 
+            setMode('history'); 
+            showToast("Reporte Guardado");
+        }
+
+        function renderHistory() {
+            document.getElementById('history-list').innerHTML = audits.map((a) => {
+                const tableRows = a.reportedTables.map(t => `
+                    <div class="flex justify-between py-1.5 border-b border-slate-100 text-[11px]">
+                        <span class="font-black text-slate-900">Mesa ${t.label}</span>
+                        <span class="px-2 py-0.5 rounded text-[9px] font-black ${t.type === 'OCUPADA' ? 'bg-slate-900 text-white' : 'bg-red-500 text-white'}">${t.type}</span>
+                    </div>
+                `).join('');
+
+                const noDiscrepancy = a.discrepancy === 0;
+
+                return `
+                <div id="audit-card-${a.id}" class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200 relative overflow-hidden print-card">
+                    <div class="absolute top-0 left-0 w-2.5 h-full ${noDiscrepancy ? 'bg-emerald-500' : 'bg-red-500'} no-print"></div>
+                    
+                    <div class="absolute top-6 right-6 flex gap-2 no-print">
+                         <button onclick="exportAuditAsTxt(${a.id})" class="w-8 h-8 text-slate-400 hover:text-emerald-500 transition-colors" title="Exportar TXT"><i class="fa-solid fa-file-export"></i></button>
+                         <button onclick="deleteAudit(${a.id})" class="w-8 h-8 text-slate-200 hover:text-red-500 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+
+                    <div class="border-b border-slate-200 pb-3 mb-4 flex justify-between items-end">
+                        <div>
+                            <h4 class="text-xs font-black text-slate-900 uppercase italic tracking-tight">REPORTE AUDITORÍA SPOT CHECK</h4>
+                            <p class="text-[9px] text-slate-400 font-bold uppercase">${a.date} | ${a.time} - ${a.lugar}</p>
+                        </div>
+                        <div class="text-right">
+                             <p class="text-sm font-black ${noDiscrepancy ? 'text-emerald-600' : 'text-red-600'} leading-none">
+                                ${noDiscrepancy ? 'CONCILIADO' : 'DIFERENCIA: ' + (a.discrepancy > 0 ? '+' : '') + a.discrepancy}
+                             </p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-[11px] mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div>
+                            <span class="text-slate-400 font-bold uppercase text-[9px]">Mesas Ocupadas (In Situ):</span>
+                            <p class="font-black text-slate-950 text-base leading-none mt-1">${a.insitu}</p>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 font-bold uppercase text-[9px]">Mesas Abiertas (POS / Micros):</span>
+                            <p class="font-black text-slate-950 text-base leading-none mt-1">${a.micros}</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <span class="text-slate-400 font-bold uppercase text-[9px] block mb-2">Detalle de Mesas bajo Control:</span>
+                        <div class="max-h-40 overflow-y-auto space-y-1 pr-1">
+                            ${tableRows || '<p class="text-slate-400 italic text-center py-2 text-[10px]">No se registraron mesas activas.</p>'}
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100">
+                        <span class="text-slate-400 font-bold uppercase block text-[9px] mb-1">Notas y Descargos:</span>
+                        <p class="italic text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 text-[10px] leading-normal">${a.obs}</p>
+                    </div>
+
+                    <div class="pt-4 flex justify-between items-center">
+                        <div>
+                            <span class="text-slate-400 font-bold uppercase text-[8px] block">Auditor a Cargo</span>
+                            <span class="font-black text-slate-900 uppercase italic text-xs tracking-tight">${a.firma}</span>
+                        </div>
+                        <button onclick="window.print()" class="no-print bg-slate-950 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition-all">
+                            <i class="fa-solid fa-file-pdf mr-1"></i> Compartir PDF
+                        </button>
+                    </div>
+                </div>
+                `;
+            }).join('') || '<p class="text-center text-slate-300 py-20 uppercase font-black text-[10px] italic">No hay reportes emitidos</p>';
+        }
+
+        function exportAuditAsTxt(id) {
+            const a = audits.find(x => x.id === id);
+            if(!a) return;
+            let tablesListText = a.reportedTables.map(t => `  - Mesa ${t.label}: [${t.type}]`).join('\n');
+            if(!tablesListText) tablesListText = "  Ninguna mesa activa.";
+
+            const content = `
+==================================================
+       REPORTE DE AUDITORÍA SPOT CHECK (TXT)
+==================================================
+FECHA: ${a.date}
+HORA: ${a.time}
+SECTOR EVALUADO: ${a.lugar}
+AUDITOR RESPONSABLE: ${a.firma}
+--------------------------------------------------
+MESAS OCUPADAS EN PLANO (IN SITU): ${a.insitu}
+MESAS EN SISTEMA DE VENTAS (POS):  ${a.micros}
+CONCILIACIÓN / DISCREPANCIA:      ${a.discrepancy}
+--------------------------------------------------
+DETALLE DE MESAS ACTIVAS ENCONTRADAS:
+${tablesListText}
+--------------------------------------------------
+OBSERVACIONES Y DESCARGOS:
+${a.obs}
+==================================================
+Generado por el Sistema de Control SPOT CHECK
+            `.trim();
+
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `SPOTCHECK_Reporte_${a.date.replace(/\//g, '-')}_${a.time.replace(/:/g, '')}.txt`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showToast("Archivo TXT Descargado");
+        }
+
+        function deleteAudit(id) { if(confirm("¿Eliminar este reporte?")) { audits = audits.filter(a => a.id !== id); saveData(); renderHistory(); } }
+        function clearHistory() { if(confirm("¿Seguro de borrar TODO el historial de este salón?")) { audits = []; saveData(); renderHistory(); } }
+        function openModal(id) { document.getElementById(id).classList.replace('hidden', 'flex'); }
+        function closeModal(id) { document.getElementById(id).classList.replace('flex', 'hidden'); }
+        
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+        
+        function resetLayout() { if (confirm("¿Limpiar todo el diseño actual de este plano?")) { createInitialLayout(VENUES[currentVenueKey].initialLayout); render(); } }
+        
+        function saveData() {
+            const dbPrefix = VENUES[currentVenueKey].dbKey;
+            localStorage.setItem(`${dbPrefix}_tables`, JSON.stringify(tables));
+            localStorage.setItem(`${dbPrefix}_audits`, JSON.stringify(audits));
+            localStorage.setItem(`${dbPrefix}_locked`, JSON.stringify(isLocked));
+        }
+
+        init();
+    </script>
+</body>
+</html>
